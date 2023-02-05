@@ -1,0 +1,478 @@
+﻿<h3>Signin</h3>
+
+@code {
+
+}
+
+
+@page "/signin"
+
+@using System.ComponentModel.DataAnnotations
+
+@inject NavigationManager navigationManager
+
+@inject Blazored.SessionStorage.ISyncSessionStorageService sessionStorage
+
+@inject HttpClient http
+
+@using A70Insurance.Models;
+
+@using A70Insurance.Common;
+
+@using Newtonsoft.Json
+
+@using System.Net.Http;
+
+@using Microsoft.Extensions.Configuration
+@inject IConfiguration Configuration
+
+
+<style>
+
+    .starttitle {
+        color: dodgerblue;
+        font-size: 14px;
+        font-family: Arial;
+        text-align: center;
+    }
+
+    .st1 {
+        font-family: Arial;
+        font-size: larger
+    }
+
+    .b1 {
+        color: white;
+        background-color: blue;
+        margin: 12px;
+        font-size: larger;
+        padding: 10px;
+    }
+
+    .label { margin-top: 10px; }
+    .input { margin-top: 5px; } 
+    .r10 { margin-left: 10px;  border-radius: 10px;}
+    
+</style>
+
+
+<div class="container">
+
+    <br>
+    <br>
+
+
+    <h4 margin="50px" align="center" style="color:navajowhite;">Customer Signin</h4>
+    <br>
+
+    <div style="color:dodgerblue">
+
+         
+
+
+        <div class="row justify-content-center">
+            <div class="col-2">
+                <label class="control-label st1">Customer Id:</label>
+                <input type="text" class="form-control st1" @bind-value="@userInfo.custId">
+            </div>
+        </div>
+        <br />
+        <div class="row justify-content-center">
+            <div class="col-2">
+                <label class="control-label st1">Password:</label>
+                <input type="password" class="form-control st1" @bind-value="@userInfo.custPassword" />
+            </div>
+        </div>
+         
+        <br />
+        <br />
+
+        <div style='display: inline; margin-left: 540px; margin-top: 30px'>
+
+
+                 <button type="submit" class="r10 btn btn-primary"
+                             @onclick="signinUser">
+                             Sign In
+                 </button> 
+                
+                 
+                <button type="submit" class="r10 btn btn-primary"
+                        @onclick="cancelSignin">
+                    Cancel
+                </button> 
+
+        </div> 
+
+        <br />
+        <br />
+        <br />
+        <div class="row"> 
+            <div style="margin-left:440px">
+                <div style="color:navajowhite; font-size: larger;">
+                    @message
+                </div>
+            </div> 
+        </div>
+
+        </div>
+         
+
+</div>
+
+
+
+@code {
+
+
+    private string? message = "Enter Customer Identification and Password...";
+
+    UserInfo userInfo = new UserInfo();
+
+    // main layout event call back
+    [CascadingParameter]
+    protected EventCallback<string> SignChange { get; set; }
+
+
+
+    private class UserInfo
+    {
+
+        [Required,
+            RegularExpression("^[A-Za-z0-9]*$", ErrorMessage = "Invalid customer Id")]
+        public string? custId { get; set; }
+        [Required,
+         RegularExpression("^[A-Za-z0-9]*$", ErrorMessage = "Invalid customer password")]
+        public string? custPassword { get; set; }
+    }
+
+    private async void cancelSignin()
+    {
+
+        // testing bootstap upgrade
+        navigationManager.NavigateTo("/index");
+    } 
+
+    private async void signinUser()
+    {
+        try
+        {
+             
+
+            string token = "";
+            HttpResponseMessage m;
+
+            var serverDown = "Server is down. Please contact administrators.";
+
+            if (userInfo.custId == null)
+            {
+                message = "Enter Customer ID";
+                return;
+            }
+
+            if (userInfo.custPassword == null)
+            {
+                message = "Enter Customer Password";
+                return;
+            }
+
+            ValidationResult r = new ValidationResult(" ");
+            ValidationContext v = new ValidationContext(userInfo);
+            var result = new List<ValidationResult>();
+            message = "";
+
+            bool isDataValid = Validator.TryValidateObject(userInfo, v, result, true);
+            if (!isDataValid)
+            {
+                foreach (var e in result)
+                {
+
+                    message += e.ErrorMessage as string;
+                    message += '\n';
+                }
+                return;
+            }
+
+
+            Customer? customer = null;
+            string json = "";
+
+            // Lookup Customer
+            try
+            {
+                var custId = userInfo.custId.ToString().Trim();
+                var send = Env.url;
+                var suffix = "/api/Signin70/" + custId;
+                var url = send + suffix;
+
+                m = await FindCustomer(url);
+
+                var goodResult = m.IsSuccessStatusCode;
+
+                if (goodResult == false)
+                {
+                    message = "could not complete signin unexpected result.";
+                    message += "status code:" + m.StatusCode.ToString() + " was returned. ";
+
+                    var status = m.StatusCode.ToString();
+                    if (status == "NotFound") { message = "Customer not found."; }
+                    if (status == "ServerError") { message = "Server error."; }
+
+
+                    return;
+                }
+
+
+
+                HttpContent content = m.Content;
+                json = await content.ReadAsStringAsync();
+
+                customer = JsonConvert.DeserializeObject<Customer>(json);
+
+                // user authenticated get token
+
+                token = customer.Encrypted.ToString();
+                if (token == "")
+                {
+                    message = "Unexpected issue.";
+                    StateHasChanged();
+                    return;
+                }
+
+                //
+                // format customer birth date so update can display it as screen date
+                // does not use db date.
+                customer.ScreenBirthDate = FormatScreenDate(customer.CustBirthDate.ToString());
+
+                // replace json with customer having correct formatted date.
+
+                json = JsonConvert.SerializeObject(customer);
+
+                if (customer.CustPlan.Trim() == "")
+                {
+
+                    sessionStorage.SetItem("hasPlan", "no");
+                }
+                else
+                {
+
+                    sessionStorage.SetItem("hasPlan", "yes");
+                    sessionStorage.SetItem("PlanId", customer.CustPlan.Trim());
+                }
+
+                //TODO: test /server down/ not found/
+                //TODO: get the debugger working.
+
+            }
+            catch (NotSupportedException)
+            {
+                message = serverDown;
+                StateHasChanged();
+                return;
+            }
+            catch (SystemException)
+            {
+
+                message = serverDown;
+                StateHasChanged();
+                return;
+            }
+
+
+            message = "editing password";
+
+            var actual = customer.CustPassword.ToString().Trim();
+            var entered = userInfo.custPassword.ToString().Trim();
+            if (actual != entered)
+            {
+
+                message = "Invalid password used.";
+                StateHasChanged();
+                return;
+            }
+
+
+
+            sessionStorage.SetItem("A65TOKEN", token);
+            sessionStorage.SetItem("custId", customer.CustId.ToString()); // replace
+            sessionStorage.SetItem("custFirst", customer.CustFirst.ToString());
+            sessionStorage.SetItem("custLast", customer.CustLast.ToString());
+            sessionStorage.SetItem("theCustomerAsJson", json);
+
+            // turn admin backdoor off
+            sessionStorage.SetItem("adminIn", "");
+
+            // Reset Links in Main Layout by Event Callback:
+            await SignChange.InvokeAsync("in");
+
+            // set message for menu
+            var msg = "Customer signed in successfully";
+            sessionStorage.SetItem<string>("MenuMessage", msg);
+
+
+            // goto main menu
+            navigationManager.NavigateTo("/menu");
+
+        }
+        catch (JSException JS)
+        {
+            message = "Problem has occurred when signing in.";
+            var msg = JS.Message.ToString();
+            StateHasChanged();
+            return;
+
+        }
+    }
+
+    private string GetToken(HttpResponseMessage m)
+    {
+        // save anti forgery token for future api calls...
+
+
+        string token = "";
+        foreach (var header in m.Headers)
+        {
+            if (header.Key == "Set-Cookie")
+            {
+                token = "";
+                foreach (var s in header.Value)
+                {
+                    token += s;
+                }
+            };
+        };
+
+        return token;
+
+    }
+
+    private async Task<HttpResponseMessage> FindCustomer(string url)
+    {
+
+
+        HttpRequestMessage req = new HttpRequestMessage()
+            {
+
+                RequestUri = new Uri(url),
+                Method = new HttpMethod("Get")
+            };
+
+
+        // cross origion blazor requests will omit Set-Cookine in resonse header otherwise.
+        //req.Properties.Add("Credentials", BrowserRequestCredentials.Include);
+
+        // catch server down exception ....
+
+        HttpResponseMessage m = null;
+
+        try
+        {
+            m = await http.SendAsync(req);
+
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine("Find Customer: Exception on call: " + ex.Message.ToString());
+
+            StateHasChanged();
+
+            message = "could not complete signin unexpected result.";
+            message += "status code:" + m.StatusCode.ToString() + " was returned. ";
+
+            var status = m.StatusCode.ToString();
+            if (status == "NotFound") { message = "Customer not found."; }
+            if (status == "ServerError") { message = "Server error."; }
+
+
+        }
+
+        return m;
+
+
+    }
+
+    private void s(string msg)
+    {
+        // until i get d bug working
+        Console.WriteLine("signin debug: " + msg);
+    }
+
+    protected String FormatScreenDate(string dbDate)
+    {
+        //  1/1/2020 blank
+        var blankPosition = dbDate.IndexOf(" ");
+        var output = dbDate.Substring(0, blankPosition);
+        if (output == "1/1/1753")
+
+        {
+            output = "";
+        }
+        return output;
+    }
+
+
+    private class Customer
+    {
+        public int Id { get; set; }
+
+        [Required,
+        System.ComponentModel.DataAnnotations.RegularExpression("^[a-zA-Z0-9]*$", ErrorMessage = " Customer ID must only contains letters or numbers - required.")]
+        public string? CustId { get; set; }
+
+        [Required,
+        RegularExpression("^[a-zA-Z0-9\\s]*$", ErrorMessage = " password must only contains letters or numbers - required.")]
+        public string? CustPassword { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public string? ConfirmPassword { get; set; }
+
+        public string? Encrypted { get; set; }
+
+        [Required,
+        RegularExpression("^[a-zA-Z0-9.\\s]*$", ErrorMessage = " First Name must only contains letters or numbers and is required.")]
+        public string? CustFirst { get; set; }
+
+        [RegularExpression("^[a-zA-Z0-9.\\s]*$", ErrorMessage = " Middle Name must only contains letters or numbers and is required.")]
+
+        public string? CustMiddle { get; set; }
+
+        [Required,
+        RegularExpression("^[a-zA-Z.\\s]*$", ErrorMessage = "Last Name must contains letters and is required")]
+        public string? CustLast { get; set; }
+
+        [Required,
+        EmailAddress]
+        public string? CustEmail { get; set; }
+        // edit date routine edits this field. screen uses screenBirthDate below.
+        // once edited put data here.
+        public DateTime? CustBirthDate { get; set; }
+
+        [Required,
+        RegularExpression("^[mfMF]+$", ErrorMessage = "Gender m f")]
+
+        public string? CustGender { get; set; }
+        [Required,
+        Phone]
+        public string CustPhone { get; set; }
+        [Required,
+        RegularExpression("^[a-zA-Z0-9#.\\s]*$", ErrorMessage = " address1 must only contains letters or numbers . # - required.")]
+        public string? CustAddr1 { get; set; }
+        [RegularExpression("^\\s|[a-zA-Z0-9#.\\s]*$", ErrorMessage = "address2 must contains letters or numbers . #  if entered")]
+        public string? CustAddr2 { get; set; }
+        [Required,
+        RegularExpression("^[a-zA-Z.\\s]*$", ErrorMessage = "City must contains letters and is required")]
+        public string? CustCity { get; set; }
+        public string? CustState { get; set; }
+        [Required]
+        [RegularExpression("^[0-9]*$", ErrorMessage = "US zip must only contains numbers = required.")]
+
+        public string? CustZip { get; set; }
+        public string? CustPlan { get; set; }
+        public string? PromotionCode { get; set; }
+        public string? AppId { get; set; }
+        public string? ExtendColors { get; set; }
+        public string? ClaimCount { get; set; }
+
+        public string? ScreenBirthDate { get; set; }
+    }
+}
+

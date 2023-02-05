@@ -1,0 +1,229 @@
+﻿@page "/customerlist"
+
+@using A70Insurance.Models
+@inject HttpClient http
+@using System.Net.Http;
+@using System.ComponentModel.DataAnnotations;
+@using Newtonsoft.Json
+@inject NavigationManager navigationManager
+
+@inject Blazored.SessionStorage.ISyncSessionStorageService sessionStorage
+
+<!DOCTYPE html>
+
+<style>
+
+    th {
+        font-size: medium;
+        color: springgreen;
+    }
+
+    td {
+        font-size: medium;
+        color: white;
+    }
+
+    h2 {
+        color: dodgerblue;
+    }
+</style>
+
+<div class="container">
+
+    <h2>Customer List</h2>
+
+    <table class="table">
+
+        <tbody>
+
+            <tr style="color:dodgerblue">
+                <td style="color:goldenrod">
+                    Customer Identification:
+                </td>
+                <td style="color:goldenrod">
+                    Customer Name:
+                </td>
+                <td>
+                    Password:
+                </td>
+                <td>
+                    Added with App:
+                </td>
+            </tr>
+
+            @foreach (var c in customerList)
+            {
+
+                var combinedName = c.CustFirst.Trim() + " " + c.CustLast.Trim();
+                var password = c.CustPassword.Trim(); // rid trail semicolon.
+
+                <tr>
+                    <td>
+                        @c.CustId
+                    </td>
+                    <td style="color:white">
+                        @combinedName
+                    </td>
+                    <td>
+                        @password
+                    </td>
+                    <td>
+                        @c.AppId
+                    </td>
+
+                </tr>
+                <tr>
+                </tr>
+            }
+
+
+        </tbody>
+    </table>
+
+</div>
+
+
+
+<button @onclick="menu" style="margin:5px;" type="button" class=" btn btn-primary">Menu</button>
+
+@code {
+
+    List<Customer> customerList = new List<Customer>();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+        var admIn = sessionStorage.GetItem<string>("adminIn");
+        if (admIn == null)
+        {
+            navigationManager.NavigateTo("/"); // back door check
+        }
+
+        string message = "";
+        var goodResult = true;
+        var uri = Env.url + "/api/Customer/";
+        HttpRequestMessage req = new HttpRequestMessage()
+        {
+            RequestUri = new Uri(uri),
+            Method = new HttpMethod("Get")
+        };
+
+        try
+        {
+            HttpResponseMessage m = await http.SendAsync(req);
+            if (goodResult == false)
+            {
+                message = "could not complete signin unexpected result.";
+                message += "status code:" + m.StatusCode.ToString() + " was returned. ";
+
+                var status = m.StatusCode.ToString();
+                if (status == "NotFound") { message = "Customer not found."; }
+                if (status == "ServerError") { message = "Server error."; }
+                return;
+            }
+
+            var content = m.Content;
+            string json = await content.ReadAsStringAsync();
+            var resultData = JsonConvert.DeserializeObject<List<Customer>>(json);
+            foreach (var item in resultData)
+            {
+                Customer c = (Customer)item;
+                customerList.Add(c);
+            }
+            return;
+        }
+        catch (JSException js)
+        {
+            message = js.Message.ToString();
+
+        }
+        catch (System.Exception ex)
+        {
+            message = ex.Message.ToString();
+
+            // needed in any component that calls back to navigation using cascading paramerter
+            // due to rendering exception when signin not used by custoner.
+
+            // needed here to when rendering exception also.
+
+            navigationManager.NavigateTo("/"); // backdoor logic
+        }
+
+    }
+
+    public void menu()
+    {
+
+        // goto main menu
+        navigationManager.NavigateTo("/adminaction");
+    }
+
+    public partial class Customer
+    {
+        public int Id { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z0-9]*$", ErrorMessage = " Customer ID must only contains letters or numbers - required.")]
+        public string CustId { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z0-9]*$", ErrorMessage = " password must only contains letters or numbers - required.")]
+        public string CustPassword { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public string ConfirmPassword { get; set; }
+
+        public string Encrypted { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z0-9.\\s]*$", ErrorMessage = " First Name must only contains letters or numbers and is required.")]
+        public string CustFirst { get; set; }
+
+        [RegularExpression("^[a-zA-Z0-9.\\s]*$", ErrorMessage = " Middle Name must only contains letters or numbers and is required.")]
+
+        public string CustMiddle { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z.\\s]*$", ErrorMessage = "Last Name must contains letters and is required")]
+        public string CustLast { get; set; }
+
+        [Required,
+           EmailAddress]
+        public string CustEmail { get; set; }
+        // edit date routine edits this field. screen uses screenBirthDate below.
+        // once edited put data here.
+        public DateTime? CustBirthDate { get; set; }
+
+        [Required,
+            RegularExpression("^[mfMF]+$", ErrorMessage = "Gender m f")]
+
+        public string CustGender { get; set; }
+        [Required,
+          Phone]
+        public string CustPhone { get; set; }
+        [Required,
+           RegularExpression("^[a-zA-Z0-9#.\\s]*$", ErrorMessage = " address1 must only contains letters or numbers . # - required.")]
+        public string CustAddr1 { get; set; }
+        [RegularExpression("^\\s|[a-zA-Z0-9#.\\s]*$", ErrorMessage = "address2 must contains letters or numbers . #  if entered")]
+        public string CustAddr2 { get; set; }
+        [Required,
+          RegularExpression("^[a-zA-Z.\\s]*$", ErrorMessage = "City must contains letters and is required")]
+        public string CustCity { get; set; }
+        public string CustState { get; set; }
+        [Required]
+        [RegularExpression("^[0-9]*$", ErrorMessage = "US zip must only contains numbers = required.")]
+
+        public string CustZip { get; set; }
+        public string CustPlan { get; set; }
+        public string PromotionCode { get; set; }
+        public string AppId { get; set; }
+        public string ExtendColors { get; set; }
+        public string ClaimCount { get; set; }
+
+        public string ScreenBirthDate { get; set; }
+    }
+
+
+
+}

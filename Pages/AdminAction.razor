@@ -1,0 +1,304 @@
+﻿@page "/adminaction"
+
+@using A70Insurance.Models
+@inject NavigationManager navigationManager
+@using System.ComponentModel.DataAnnotations
+@using Newtonsoft.Json
+@inject HttpClient http 
+@inject Blazored.SessionStorage.ISyncSessionStorageService sessionStorage
+
+
+<style>
+
+    .st1 {
+        font-family: Arial;
+        font-size: large;
+    }
+</style>
+
+<div class="container">
+
+    <h2 style="margin-left:520px; margin-top:40px; margin-bottom: 40px; color:navajowhite">Admin Action</h2>
+
+    <div style='margin-left: 260px'>
+
+        <div class="row" form-control>
+            <div class="col-3">
+                <div class="form-group">
+                    <label style="color:dodgerblue;" class="st1 control-label">Customer Id:</label> 
+                    <input @bind-value="@action.CustomerId" class="form-control" placeholder="Customer Id" type="text" />
+                </div>
+            </div>
+        </div>
+        <br />
+        <div class="row" form-control>
+            <div class="col-3">
+                <div class="form-group">
+                    <label style="color:dodgerblue;" class="st1 control-label">New Password:</label>  
+                     <input @bind-value="@action.NewPassword" class="form-control" placeholder="New Password" type="text" />
+                    
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="form-group">
+                    <label style="color:dodgerblue;" class="st1 control-label">Confirm New Password:</label>
+                    <input @bind-value="@action.NewPassword2" class="form-control" placeholder="Confirm Password" type="text" />
+                    
+                </div>
+            </div>
+        </div>
+        <br />
+        <div class="row" form-control>
+            <div class="col-3">
+                <div class="form-group">
+                    <label style="color:dodgerblue;" class="st1 control-label">New Customer Id:</label>
+                    <div class="input-group">
+                        <span class="input-group-addon" id="basic-addon1">$</span>
+                        <input @bind-value="@action.NewCustomerId" class="form-control" placeholder="New Customer Id:" type="text" />
+                    </div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="form-group">
+                    <label style="color:dodgerblue;" class="st1 control-label">Confirm New Customer Id:</label>
+                    <div class="input-group">
+                        <span class="input-group-addon" id="basic-addon1">$</span>
+                        <input @bind-value="@action.NewCustomerId2" class="form-control" placeholder="Confirm New Customer Id:" type="text" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+
+        <br />
+        <div class="row" form-control>
+
+            <div class="col-3">
+                <button id="sub" name="sub" @onclick="ListCustomers" class="b1 btn btn-primary" value="ListCustomers">List Customers</button>
+            </div>
+
+            <div class="col-3">
+                <button id="sub" name="sub" @onclick="ResetPassword" class="b1 btn btn-primary" value="ResetPassword">Reset Password</button>
+            </div>
+
+            <div class="col-3">
+                <button id="sub" name="sub" @onclick="ResetCustomerId" class="b1 btn btn-primary" value="ResetCustomerId">Reset Customer Id</button>
+            </div>
+        </div>
+
+        <br />
+        <div class="row" form-control>
+            <div class="col-6" style="color:burlywood">
+                <p style="color:navajowhite">@message</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    string message = "";
+
+    Action action = new Action();
+
+
+    protected override void OnInitialized()
+    {
+
+        var admIn = sessionStorage.GetItem<string>("adminIn");
+        if(admIn == null)
+        {
+            navigationManager.NavigateTo("/"); // back door check
+        }
+
+    }
+
+    public void ListCustomers()
+    {
+
+        // goto main menu
+        navigationManager.NavigateTo("/customerlist");
+    }
+
+    public async void ResetPassword()
+    {
+        if (action.CustomerId == null)
+        {
+            message = "you must enter a customer id.";
+            return;
+        }
+        if (action.NewPassword == null)
+        {
+            message = "you must enter a new password";
+            return;
+        }
+        if (action.NewPassword2 == null)
+        {
+            message = "you must enter a confirmation password.";
+            return;
+        }
+        if (action.NewPassword != action.NewPassword2)
+        {
+            message = "Confirmation password does not match new password.";
+            return;
+        }
+
+        PasswordChanger pc = new PasswordChanger();
+        pc.CustomerId = action.CustomerId;
+        pc.NewPassword = action.NewPassword;
+
+        string result = await ResetPassword(pc);
+        if (result != "OK") message = result;
+        else message = "Password Updated";
+
+        StateHasChanged();
+        return;
+    }
+
+    private async Task<string> ResetPassword(PasswordChanger pc)
+    {
+        var goodResult = true;
+        var uri = Env.url + "/api/ChangePassword/";
+        HttpContent item = JsonContent.Create<PasswordChanger>(pc);
+        HttpRequestMessage req = new HttpRequestMessage()
+        {
+            RequestUri = new Uri(uri),
+            Method = new HttpMethod("Put"),
+            Content = item
+        };
+
+
+        var token = sessionStorage.GetItem<string>("A65TOKEN");
+        req.Headers.Add("A65TOKEN", token);
+
+        try
+        {
+            HttpResponseMessage m = await http.SendAsync(req);
+            if (goodResult == false)
+            {
+                message = "could not complete signin unexpected result.";
+                message += "status code:" + m.StatusCode.ToString() + " was returned. ";
+
+                var status = m.StatusCode.ToString();
+                if (status == "NotFound") { message = "Customer not found."; }
+                if (status == "ServerError") { message = "Server error."; }
+                return message;
+            }
+            return "OK";
+
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine("Exception on call: " + ex.Message.ToString());
+            return ex.Message.ToString();
+        }
+
+    }
+
+    public async void ResetCustomerId()
+    {
+        if (action.CustomerId == null)
+        {
+            message = "you must enter a customer id.";
+            return;
+        }
+        if (action.NewCustomerId == null)
+        {
+            message = "you must enter a new customer id";
+            return;
+        }
+        if (action.NewCustomerId2 == null)
+        {
+            message = "you must enter a confirmation customer id";
+            return;
+        }
+        if (action.NewCustomerId != action.NewCustomerId2)
+        {
+            message = "Confirmation customer id does not match new customer id.";
+            return;
+        }
+        if (action.CustomerId == action.NewCustomerId)
+        {
+            message = "Reset Customer Id is the same as Customer Id.";
+            return;
+        }
+
+        CustomerResetter cr = new CustomerResetter();
+        cr.CustomerId = action.CustomerId;
+        cr.NewCustomerId = action.NewCustomerId;
+
+        string result = await ResetCustomerId(cr);
+        if (result != "OK") message = result;
+        else message = "Customer Identification has been updated successfully.";
+        StateHasChanged();
+        return;
+
+    }
+
+    private async Task<string> ResetCustomerId(CustomerResetter cr)
+    {
+        var uri = Env.url + "/api/ResetCustomer/";
+        HttpContent item = JsonContent.Create<CustomerResetter>(cr);
+        HttpRequestMessage req = new HttpRequestMessage()
+        {
+            RequestUri = new Uri(uri),
+            Method = new HttpMethod("Put"),
+            Content = item
+        };
+
+
+        var token = sessionStorage.GetItem<string>("A65TOKEN");
+        req.Headers.Add("A65TOKEN", token);
+
+        try
+        {
+            HttpResponseMessage m = await http.SendAsync(req);
+            HttpContent content = m.Content;
+            var result = await content.ReadAsStringAsync();
+
+            //Claim claim = JsonConvert.DeserializeObject<Claim>(input);
+            // HttpContent content = m.Content;
+            // var result = content.ToString(); // OK or 'message' comes back! 
+            return result;
+
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine("Exception on call: " + ex.Message.ToString());
+            return ex.Message.ToString();
+        }
+
+    }
+
+
+    public class Action
+    {
+
+        // since not all fields are used; we allow spaces so
+        // code needs to check 'if there' depending on specific
+        // action.
+
+
+        [RegularExpression("^[a-zA-Z0-9]*$", ErrorMessage = " Customer Id must only contains letters or numbers and is required.")]
+        public string CustomerId { get; set; }
+
+
+        [RegularExpression("^[a-zA-Z0-9\\s]*$", ErrorMessage = " New Password must only contains letters or numbers and is required.")]
+        public string NewPassword { get; set; }
+
+
+        [RegularExpression("^[a-zA-Z0-9\\s]*$", ErrorMessage = " Confirm New Password must only contains letters or numbers and is required.")]
+        public string NewPassword2 { get; set; }
+
+
+        [RegularExpression("^[a-zA-Z0-9\\s]*$", ErrorMessage = " New Customer Id must only contains letters or numbers and is required.")]
+        public string NewCustomerId { get; set; }
+
+
+        [RegularExpression("^[a-zA-Z0-9\\s]*$", ErrorMessage = " Confirm Customer Id must only contains letters or numbers and is required.")]
+        public string NewCustomerId2 { get; set; }
+    }
+
+}

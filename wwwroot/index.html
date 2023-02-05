@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>A70Insurance</title>
+    <base href="/" />
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="css/A70Insurance.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div id="app">Loading...</div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+
+
+    <script>
+
+        try {
+
+            var ua = window.navigator.userAgent;
+            var isIE = /MSIE|Trident/.test(ua);
+
+            if (isIE) {
+
+                //alert("Internet Explorer browser is not supported. Please use a more modern browser like Google Chrome, Microsoft Edge, Mozilla Firefox, Opera, Safari, etc.");
+
+                var part1 = window.location.href;
+                var part2 = "/notSupported.htm";
+                var goto = part1 + part2;
+                window.location = goto;
+
+            }
+        }
+        catch (Error) {
+
+            console.log("index.htm - caught error (1): ");
+            console.log(Error);
+
+        };
+
+    </script>
+
+    <script>
+
+        /*
+         * ref:
+         * https://stackoverflow.com/questions/56513221/how-to-use-bootstrap-carousel-in-blazor
+         */
+
+        window.initializeCarousel = () => {
+
+            console.log("step 1");
+
+
+            $('#carouselExampleIndicators').carousel({ interval: 10000 });
+
+            //see step 2 to understand these news id's:
+            $('#carouselExampleIndicators-prev').click(
+                () => $('#carouselExampleIndicators').carousel('prev'));
+            $('#carouselExampleIndicators-next').click(
+                () => $('#carouselExampleIndicators').carousel('next'));
+
+            // had to add a setTimer for link 2 to start the carousel.
+            // ... in addition to the stack overflow info linked above.
+
+            // ref:  get carousel to slide.
+
+            // https://stackoverflow.com/questions/66506091/bootstrap-carousel-does-not-auto-slide-when-routing-back-in-angular
+            // carousel was not starting until page refreshed.
+
+
+            var hiddenElement = document.getElementById("carousel");
+
+            setInterval(() => {
+                hiddenElement.click();
+            }, 10000);
+
+
+            // end of additinal steps.
+
+        }
+    </script>
+
+    <script>
+
+
+        /* history screen position function */
+
+        window.setHistoryPosition = (value) => {
+
+            // input: top, mid, bot, or focus.
+
+            try {
+
+                var tag = "--not set--";
+                switch (value) {
+                    case "top": tag = "#top"; break;
+                    case "mid": tag = "#mid"; break;
+                    case "bot": tag = "#bot"; break;
+                    case "act1": tag = "#act1"; break;
+                    case "act2": tag = "#act2"; break;
+                    case "focus": tag = "#focus"; break;
+                    default: break;
+                }
+
+
+                // scroll to selected tag:
+                $(window).scrollTop($(tag).offset().top);
+
+            } catch (Error) {
+
+                console.log("history position error: ");
+                console.log("tag is: " + tag);
+                for (let p in Error) {
+                    console.log(p + " : " + Error[p]);
+                }
+
+            }
+
+        }
+
+
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+            integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+            integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+            integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+            crossorigin="anonymous"></script>
+</body>
+
+</html>

@@ -1,0 +1,620 @@
+﻿
+@page "/register"
+
+@using System.ComponentModel.DataAnnotations;
+
+@inject NavigationManager navigationManager
+
+@inject HttpClient http
+
+@inject Blazored.SessionStorage.ISyncSessionStorageService sessionStorage
+
+
+@inject IEditDate editDate;
+
+@using A70Insurance.Models
+
+@using A70Insurance.Common;
+
+@using Newtonsoft.Json; 
+
+@using System.Text.RegularExpressions;
+
+<style>
+
+    .b1:hover {
+        color: goldenrod;
+        background-color: black
+    }
+
+    .b1 {
+        color: white;
+        background-color: blue;
+        margin: 12px;
+        font-size: larger;
+        padding: 10px;
+    }
+
+    .lab {
+        color: dodgerblue;
+        font-size: large;
+    }
+
+    h2 {
+        color: white;
+        margin-left: 240px;
+    }
+
+
+
+    .st1 {
+        font-family: Arial;
+        font-size: larger
+    }
+
+    .d1 {
+        margin-left: 1px;
+    }
+
+    .b3 { margin-left: 50px; border-radius: 10px; }
+
+</style>
+
+<div class="container">
+
+    <h4 style="margin-left: 450px; color:navajowhite;">Register Customer</h4>
+    <br />
+    <div style='margin-left: 185px'>
+
+        <div class="form-group row gx-1">
+
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustId" class="st1 control-label">Customer Id:</label>
+                <input @bind-value="@customer.CustId" class="form-control" placeholder="Customer Id" type="text" />
+            </div>
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustPassword" class="st1 control-label">Password:</label>
+                <input @bind-value="@customer.CustPassword" class="form-control" placeholder="Password" type="password" />
+            </div>
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustPassword" class="st1 control-label">Confirm Password:</label>
+                <input @bind-value="@customer.ConfirmPassword" class="form-control" placeholder="Confirm Password" type="password" />
+            </div> 
+
+           
+        </div> <!-- end row 1 -->
+
+        <br />
+
+        <div class="form-group row gx-1">
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="CustFirst" class="st1 control-label">First Name:</label>
+                <input @bind-value="@customer.CustFirst" class="form-control" placeholder="First Name" type="text" />
+            </div>
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="CustMiddle" class="st1 control-label">Middle:</label>
+                <input @bind-value="@customer.CustMiddle" class="form-control" placeholder="Middle Name" type="text" />
+            </div>
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="CustLast" class="st1 control-label">Last Name:</label>
+                <input @bind-value="@customer.CustLast" class="form-control" placeholder="Last Name" type="text" />
+            </div>
+        </div> <!-- end row 2 -->
+
+
+
+        <div class="form-group row gx-1">
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustEmail" class="st1 control-label">Email:</label>
+                <input @bind-value="@customer.CustEmail" class="form-control" placeholder="Email" type="text" />
+            </div>
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustPhone" class="st1 control-label">Phone:</label>
+                <input @bind-value="@customer.CustPhone" class="form-control" placeholder="Phone" type="text" />
+            </div>
+        </div>
+
+        <br />
+
+        <div class="form-group row gx-1">
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.ScreenBirthDate" class="st1 control-label">Birth Date:</label>
+                <input @bind-value="@customer.ScreenBirthDate" class="form-control" placeholder="mm/dd/yyyy" type="text" />
+            </div>
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustGender" class="st1 control-label">Gender:</label>
+                <select @bind="customer.CustGender" class="form-control">
+                    @for (var i = 0; i < genders.Count; i++)
+                    {
+
+                        <option>@genders[i]</option>
+
+                    }
+                </select>
+
+            </div>
+
+        </div> <!-- end row 2 -->
+
+        <br />
+
+        <div class="form-group row gx-1">
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustAddr1" class="st1 control-label">Address 1:</label>
+                <input @bind-value="@customer.CustAddr1" class="form-control" placeholder="Address 1" type="text" />
+            </div>
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustAddr2" class="st1 control-label">Address 2:</label>
+                <input @bind-value="@customer.CustAddr2" class="form-control" placeholder="Address 2" type="text" />
+            </div> 
+            <div class="col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.PromotionCode" class="st1 control-label">Promotion code:</label>
+                <input @bind-value="@customer.PromotionCode" class="form-control" placeholder="Promo Code" type="text" />
+            </div>
+
+        </div> <!-- end row 4 -->
+
+        <br />
+
+        <div class="form-group row gx-1">
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustCity" class="st1 control-label">City:</label>
+                <input @bind-value="@customer.CustCity" class="form-control" placeholder="City" type="text" />
+            </div>
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustState" class="st1 control-label">State:</label>
+                <select @bind="@customer.CustState" class="form-control">
+                    @for (var i = 0; i < states.Count; i++)
+                    {
+                        <option>@states[i]</option>
+                    }
+                </select>
+            </div>
+            <div class="d1 col-3">
+                <label style="color:dodgerblue;" asp-for="@customer.CustZip" class="st1 control-label">Zip:</label>
+                <input @bind-value="@customer.CustZip" class="form-control" placeholder="Zip" type="text" />
+            </div>
+
+
+        </div>
+
+        <br />
+
+         <br />
+
+        <div style='display: inline; margin-left: 195px; margin-top: 30px'> 
+
+                
+                <button type='button' style="color:white"
+                        class='b3 btn btn-primary' @onclick="submit">
+                    Register
+                </button> 
+                
+                <button type='button' style="color:white"
+                        class='b3 btn btn-primary' @onclick="signin">
+                    Signin
+                </button> 
+                 
+                     
+                <button type='button' style="color:white"
+                        class='b3 btn btn-primary' @onclick="cancel">
+                    Cancel
+                </button> 
+                 
+
+        </div> 
+
+        <div class="row">
+            <div style="color:navajowhite; margin-top:25px;">
+                @message
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+
+@code {
+
+    // main layout event call back
+    [CascadingParameter]
+    protected EventCallback<string> SignChange { get; set; }
+
+    private string message;
+    private List<string> states = new List<string>()
+{
+        { "WA" },
+        { "CA" }
+
+    };
+    private List<string> genders = new List<string>() { "M", "F" };
+
+    private Customer customer = new Customer();
+
+    private void cancel()
+    {
+
+        navigationManager.NavigateTo("/index");
+    }
+
+    private void signin()
+    {
+
+        navigationManager.NavigateTo("/signin");
+    }
+
+
+
+    protected override void OnInitialized()
+    {
+
+        customer.CustGender = genders[0];
+        customer.CustState = states[0];
+        customer.CustMiddle = "";
+        customer.CustAddr2 = "";
+        customer.ClaimCount = "0";
+        customer.AppId = "A70";
+        customer.CustPlan = "";
+        customer.ExtendColors = "";
+        customer.PromotionCode = "";
+
+
+    }
+
+
+
+    async private void submit()
+    {
+        var badPromo = false;
+        var badEmail = false;
+        var badBirthDate = false;
+
+
+        try
+        {
+            var promotionCode = await GetPromotionCode();
+
+
+            if (customer.PromotionCode != promotionCode)
+            {
+                badPromo = true;
+                //message = "Invalid Promotion Code";
+                //StateHasChanged();
+                //return;
+            } 
+
+            var state = customer.CustState;
+            if (state == null || state == "")
+            {
+                state = "WA";
+            } 
+
+            // put screen date into edited field for edit and database update.
+            // before checking valid state.
+            DateParm dateParm = new DateParm();
+            dateParm.Input = customer.ScreenBirthDate;
+            dateParm.Screen = "register"; 
+            editDate.EditTheDate(dateParm);
+            if (!dateParm.Valid)
+            {
+                badBirthDate = true;
+                // message = dateParm.Message;
+                // StateHasChanged();
+                // return;
+            }
+            else
+            {
+                // joes in json customer to update screen via temp data to
+                // to reduce 1 db call; signin does the same thing. so update
+                // does not make a db call.
+                customer.CustBirthDate = dateParm.Formatted;
+            }
+
+            var editEmail = customer.CustEmail as string; // in case null.
+            Regex emailPattern = new Regex(Env.ePattern);
+            if (!emailPattern.IsMatch(editEmail))
+            {
+                badEmail = true;
+            }
+
+            ValidationResult r = new ValidationResult(" ");
+            ValidationContext v = new ValidationContext(customer);
+            var result = new List<ValidationResult>();
+            message = "";
+
+            bool isDataValid = Validator.TryValidateObject(customer, v, result, true);
+            if (!isDataValid)
+            {
+                foreach (var e in result)
+                {
+
+                    message += e.ErrorMessage.ToString();
+                    message += '\n';
+                }
+            }
+
+            if (badPromo)
+            {
+                message += "invalid promotion code";
+                message += '\n';
+            }
+
+            if (badEmail)
+            {
+                message += "invalid e-mail entered";
+                message += '\n';
+            }
+
+            if (badBirthDate)
+            {
+                message += "invalid birth date entered";
+                message += '\n';
+            }
+
+            /* edits completed send error message if required. */
+            if (message.Length > 0)
+            {
+                StateHasChanged();
+                return;
+            }
+
+
+            var custId = customer.CustId.ToString().Trim();
+            var dupck = await DuplicateCheck(custId);
+
+
+            if (dupck == "down")
+            {
+                message = "Server is down. Contact adminstrators.";
+                StateHasChanged();
+                return;
+            }
+
+            if (dupck == "ex")
+            {
+                message = "Unknown error. Contact adminstrators.";
+                StateHasChanged();
+                return;
+            }
+
+            if (dupck == "dup")
+            {
+                message = "Duplicate customer";
+                StateHasChanged();
+                return;
+            }
+
+            HttpResponseMessage m = await AddCustomer(customer);
+
+            var goodResult = m.IsSuccessStatusCode;
+
+            if (goodResult == false)
+            {
+                message = "could not complete signin unexpected result.";
+                message += "status code:" + m.StatusCode.ToString() + " was returned. ";
+
+                var status = m.StatusCode.ToString();
+                if (status == "NotFound") { message = "Customer not found."; }
+                if (status == "ServerError") { message = "Server error."; }
+
+                return;
+            }
+
+
+
+            HttpContent content = m.Content;
+            var token = await content.ReadAsStringAsync();
+            if (token == null)
+            {
+                message = "Unexpected issue.";
+                StateHasChanged();
+                return;
+            }
+
+            // pass customer as json to update
+            var json = JsonConvert.SerializeObject(customer);
+
+            sessionStorage.SetItem("A65TOKEN", token);
+
+            // internal nav menu buffer for name at top right.
+            sessionStorage.SetItem("custId", customer.CustId.ToString()); // replace
+            sessionStorage.SetItem("custFirst", customer.CustFirst.ToString());
+            sessionStorage.SetItem("custLast", customer.CustLast.ToString());
+            // internal json buffer for update screen.
+            sessionStorage.SetItem("theCustomerAsJson", json);
+            // internal plan buffer for claim add process
+            sessionStorage.SetItem("hasPlan", "no");
+            sessionStorage.SetItem("PlanId", customer.CustPlan.Trim());
+
+            // set message for menu
+            var msg = "Customer registered successfully";
+            sessionStorage.SetItem<string>("MenuMessage", msg);
+
+            // Reset Links in Main Layout by Event Callback:
+            await SignChange.InvokeAsync("in");
+
+            // turn admin backdoor off
+            sessionStorage.SetItem("adminIn", "");
+
+            /* for now goto menu until plan screen fixed....*/
+
+            navigationManager.NavigateTo("/menu");
+
+            // navigationManager.NavigateTo("/plan");
+
+        }
+        catch (System.Exception ex)
+        {
+
+            message = "Could not complete registratoin " + ex.Message.ToString();
+            return;
+
+        }
+    }
+
+    private async Task<string> GetPromotionCode()
+    {
+        var code = "";
+        var send = Env.url + "/api/Reference/PromotionCode";
+        HttpResponseMessage m = await http.GetAsync(send);
+
+        HttpContent content = m.Content;
+        var input = await content.ReadAsStringAsync();
+
+        if (m.IsSuccessStatusCode)
+        {
+            code = input;
+        }
+        return code;
+    }
+
+    private async Task<string> DuplicateCheck(string custId)
+    {
+        var send = Env.url;
+
+        string url = send + "/api/customer/" + custId;
+
+        HttpRequestMessage req = new HttpRequestMessage()
+        {
+
+            RequestUri = new Uri(url),
+            Method = new HttpMethod("Get")
+        };
+
+
+
+        HttpResponseMessage m = null;
+
+        try
+        {
+            m = await http.SendAsync(req);
+
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine("Duplicate Check: Exception on call: " + ex.Message.ToString());
+            return "ex"; // stop subsequent logic. if error.
+        }
+
+        if (m == null)
+        {
+            return "down";
+        }
+
+
+        var dup = "no-dup";
+        if (m.IsSuccessStatusCode)
+        {
+            dup = "dup";
+        }
+
+        return dup;
+    }
+
+
+    private async Task<HttpResponseMessage> AddCustomer(Customer customer)
+    {
+
+        customer.CustPlan = "";
+
+        string url = Env.url + "/api/PostCustomer70";
+
+        HttpContent item = JsonContent.Create<Customer>(customer);
+
+        HttpRequestMessage req = new HttpRequestMessage()
+        {
+
+            RequestUri = new Uri(url),
+            Method = new HttpMethod("Post"),
+            Content = item
+        };
+
+
+        HttpResponseMessage m = null;
+
+        try
+        {
+            m = await http.SendAsync(req);
+
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine("Exception on call: " + ex.Message.ToString());
+        }
+
+        return m;
+
+
+    }
+
+
+    public class Customer
+    {
+        public int Id { get; set; }
+
+        [Required,
+         System.ComponentModel.DataAnnotations.RegularExpression("^[a-zA-Z0-9]*$", ErrorMessage = " Customer ID must only contains letters or numbers - required.")]
+        public string CustId { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z0-9\\s]*$", ErrorMessage = " password must only contains letters or numbers - required.")]
+        public string CustPassword { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public string ConfirmPassword { get; set; }
+
+        public string Encrypted { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z0-9.\\s]*$", ErrorMessage = " First Name must only contains letters or numbers and is required.")]
+        public string CustFirst { get; set; }
+
+        [RegularExpression("^[a-zA-Z0-9.\\s]*$", ErrorMessage = " Middle Name must only contains letters or numbers and is required.")]
+
+        public string CustMiddle { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z.\\s]*$", ErrorMessage = "Last Name must contains letters and is required")]
+        public string CustLast { get; set; }
+
+        [Required]
+    
+        public string CustEmail { get; set; }
+        // edit date routine edits this field. screen uses screenBirthDate below.
+        // once edited put data here.
+        public DateTime? CustBirthDate { get; set; }
+
+        [Required,
+              RegularExpression("^[mfMF]+$", ErrorMessage = "Gender m f")]
+
+        public string CustGender { get; set; }
+        [Required,
+          Phone]
+        public string CustPhone { get; set; }
+        [Required,
+           RegularExpression("^[a-zA-Z0-9#.\\s]*$", ErrorMessage = " address1 must only contains letters or numbers . # - required.")]
+        public string CustAddr1 { get; set; }
+        [RegularExpression("^\\s|[a-zA-Z0-9#.\\s]*$", ErrorMessage = "address2 must contains letters or numbers . #  if entered")]
+        public string CustAddr2 { get; set; }
+        [Required,
+          RegularExpression("^[a-zA-Z.\\s]*$", ErrorMessage = "City must contains letters and is required")]
+        public string CustCity { get; set; }
+
+        [Required,
+            RegularExpression("(WA|CA)", ErrorMessage = "Please select a state.")]
+        public string CustState { get; set; }
+        [Required]
+        [RegularExpression("^[0-9]+$", ErrorMessage = "US zip must only contains numbers = required.")]
+
+        public string CustZip { get; set; }
+        public string CustPlan { get; set; }
+        public string PromotionCode { get; set; }
+        public string AppId { get; set; }
+        public string ExtendColors { get; set; }
+        public string ClaimCount { get; set; }
+
+        public string ScreenBirthDate { get; set; }
+    }
+}
+

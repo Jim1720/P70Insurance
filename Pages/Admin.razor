@@ -1,0 +1,166 @@
+﻿
+@page "/admin"
+
+@using A70Insurance.Models
+
+@using System.ComponentModel.DataAnnotations
+
+@inject NavigationManager navigationManager
+
+@inject Blazored.SessionStorage.ISyncSessionStorageService sessionStorage
+
+@using System.Net.Http;
+
+
+@inject HttpClient http
+
+<style>
+
+    .st1 { font-family: Arial; font-size:large; }
+</style>
+
+<div class="container">
+
+    <h2 style="margin-left:540px; margin-top:40px; margin-bottom: 40px; color:navajowhite">Admin Sign In</h2>
+
+    <div style='margin-left: 80px'>
+
+        <div class="row justify-content-center">
+                <div class="col-3">
+                    <label style="color:dodgerblue;" class="st1 control-label">Admin Id:</label>  
+                    <input @bind-value="@adminSignin.AdminId" class="form-control" placeholder="Admin Id" type="text" /> 
+                </div> 
+         </div>
+         <div class="row justify-content-center">
+                <div class="col-3">
+                    <label style="color:dodgerblue;" class="st1 control-label">Password:</label>  
+                        <input @bind-value="@adminSignin.Password" class="form-control" placeholder="Password" type="password" /> 
+                </div>
+                 
+        </div>
+
+
+        <br />
+        <div>
+
+            <div style="color:lawngreen; margin-left: 470px;" >
+                <button @onclick="signin" class="b1 btn btn-primary">Sign In</button>
+            </div>
+
+        </div>
+
+
+        <br />
+        <div>
+
+            <div   style="margin-left: 380px;color:navajowhite"> 
+
+                <p style="color:navajowhite">@message</p> 
+
+            </div>
+
+        </div>
+
+
+
+    </div>
+
+</div>
+
+@code {
+
+    private string message;
+
+    AdminSignin adminSignin = new AdminSignin();
+
+
+    public async Task signin()
+    {
+
+        if (adminSignin.AdminId == null)
+        {
+            message = "Enter Admin Identification.";
+            return;
+        }
+
+        if (adminSignin.Password == null)
+        {
+            message = "Enter Admin Password.";
+            return;
+        }
+
+        ValidationResult r = new ValidationResult(" ");
+        ValidationContext v = new ValidationContext(adminSignin);
+        var result = new List<ValidationResult>();
+        message = "";
+
+        bool isDataValid = Validator.TryValidateObject(adminSignin, v, result, true);
+        if (!isDataValid)
+        {
+            foreach (var e in result)
+            {
+
+                message += e.ErrorMessage.ToString();
+                message += '\n';
+            }
+            return;
+        }
+
+        (string id, string password) = await GetReferenceData();
+
+        if (adminSignin.AdminId != id)
+        {
+            message = "Admin Signin is not valid.";
+            return;
+        }
+
+
+
+        if (adminSignin.Password != password)
+        {
+            message = "Admin Password is not valid.";
+            return;
+        }
+
+
+        sessionStorage.SetItem("adminIn", "Yes");
+        sessionStorage.SetItem("custId", ""); // signout customer for back door checking
+
+        // goto main menu
+        navigationManager.NavigateTo("/adminaction");
+
+    }
+
+
+    private async Task<(string,string)> GetReferenceData()
+    {
+
+        var send = Env.url + "/api/Reference/Adm";
+        HttpResponseMessage m = await http.GetAsync(send);
+        if(!m.IsSuccessStatusCode)
+        {
+            return ("", "");
+        }
+
+        HttpContent content = m.Content;
+        var data = await content.ReadAsStringAsync(); 
+        
+        var id = data.Substring(0, data.IndexOf(","));
+        var pass = data.Substring(data.IndexOf(",") + 1);
+        return (id, pass);
+
+    }
+
+    public class AdminSignin
+    {
+        [Required,
+         RegularExpression("^[a-zA-Z0-9]*$", ErrorMessage = " Admin ID must only contains letters or numbers and is required.")]
+        public string AdminId { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z0-9]*$", ErrorMessage = " Password must only contains letters or numbers and is required.")]
+        public string Password { get; set; }
+
+
+    }
+}

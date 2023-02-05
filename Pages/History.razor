@@ -1,0 +1,1039 @@
+﻿@page "/history"
+
+@inject HttpClient Http
+@inject NavigationManager navigationManager
+@using A70Insurance.Models
+@inject Blazored.SessionStorage.ISyncSessionStorageService sessionStorage
+@inject NavigationManager navigationManager
+@using A70Insurance.ClaimHelpers;
+@inject IJSRuntime JSRuntime;
+
+
+@inject Blazored.SessionStorage.ISyncSessionStorageService sessionStorage
+
+@inject IActionOperations actionOperations;
+
+@inject IFocusedClaim focusedClaim;
+
+@inject IHistorySettings historySettings;
+
+
+<style>
+
+    th {
+        font-size: medium;
+        color: springgreen;
+    }
+
+    td {
+        font-size: medium;
+        color: white;
+    }
+
+    h2 {
+        color: dodgerblue;
+    }
+
+    .dodgerblue { color: dodgerblue }
+    .white { color: white}
+    .burleywood { color: burlywood }
+    .space { margin-top: 15px;}
+     
+</style>
+
+<div class="container">
+
+
+    <input style="display:none" type="text" id="hiddenAmount" name="hiddenAmount" value="unused" />
+    <input style="display:none" type="text" id="hiddenClaimId" name="hiddenClaimId" value="unused" />
+
+
+
+    <h4 style="color: navajowhite" align="center">Claim History</h4>
+
+
+    <p style="color:aquamarine"><em>@topMessage</em></p>
+
+
+    @{
+        // get claim history operational info
+
+        var top = "top";
+        var mid = "mid";
+        var bot = "bot";
+        var act1 = "act1";
+        var act2 = "act2";
+
+
+        // environment info
+        var envUsingStay = Env.usingStay;
+        var envUsingFocus = Env.usingFocus;
+        var envUsingNav = Env.usingNav;
+        var envUsingActions = Env.usingActions;
+
+        // current button settings
+        var stayButtonOn = historySettings.isStayOn(sessionStorage);
+        var focusButtonOn = historySettings.isFocusOn(sessionStorage);
+
+        var stayLiteral = stayButtonOn ? "stay on" : "stay off";
+        var focusLiteral = focusButtonOn ? "focus on" : "focus off";
+
+        // show list of claims
+        var count = 0;
+        var loop = 0;
+        Int32 halfway = 0;
+        var anyOfAbove = false;
+        var sequence = 0;
+        var total = claimListCount;
+        halfway = (total - (total % 2)) / 2;
+
+        var focusedClaimId = focusedClaim.getFocusedClaim(sessionStorage);
+        string act1claimId = "";
+        string act1literal = "";
+        string act2claimId = "";
+        string act2literal = "";
+
+        (act1literal, act1claimId) = actionOperations.getActionInfo(0, sessionStorage);
+        (act2literal, act2claimId) = actionOperations.getActionInfo(1, sessionStorage);
+        bool action1DataPresent = act1claimId != "";
+        bool action2DataPresent = act2claimId != "";
+
+        var stay = "";
+
+        if (@found == true)
+        {  /* render if data present */
+
+            foreach (var c in @claimList)
+            {
+                count++;
+                loop++;
+                sequence++;
+
+                var type = "undefined";
+                var plan = c.PlanId.ToString().Trim();
+                switch (c.ClaimType)
+                {
+                    case "m":
+                        type = "Medical"; ;
+                        break; ;
+                    case "d":
+                        type = "Dental";
+                        break;
+                    case "v":
+                        type = "Vision";
+                        break;
+                    case "x":
+                        type = "Drug";
+                        break;
+                    default:
+                        type = "Unknown";
+                        break;
+                }
+
+                @* navigation divs *@
+
+                if (count == 1)
+                {
+                    <div id="top"></div>
+                }
+                if (count == halfway)
+                {
+                    <div id="mid"></div>
+                }
+                if (count == total)
+                {
+                    <div id="bot"></div>
+                }
+
+                var cid = c.ClaimIdNumber.Trim(); 
+              
+
+                if (focusedClaimId == cid)
+                {
+
+                    <div id="focus"></div>
+                }
+
+                @* action divs *@
+
+                if (act1claimId == cid)
+                {
+
+                    <div id="act1"></div>
+                }
+                if (act2claimId == cid)
+                {
+
+                    <div id="act2"></div>
+                }
+
+                <div class="row">
+                    <div class="col-3 white">Claim Identification:</div>
+                    <div class="col-3 white">Status:</div>
+                    <div class="col-3 white">Type:</div>
+                    <div class="col-3 white">Sequence:</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-3 burleywood"> @c.ClaimIdNumber</div>
+                    <div class="col-3 dodgerblue"> @c.ClaimStatus</div>
+                    <div class="col-3 dodgerblue"> @type</div>
+                    <div class="col-3 dodgerblue"> @sequence</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-3 white">Patient:</div>
+                    <div class="col-3 white">Doctor:</div>
+                    <div class="col-3 white">Clinic:</div>
+                    <div class="col-3 white">Locaton:</div>
+                </div>
+
+                var name = c.PatientFirst + " " + c.PatientLast;
+
+                var dos = c.DateService.ToString();
+                dos = dos.Substring(0, dos.IndexOf(" "));
+
+                <div class="row">
+                    <div class="col-3 dodgerblue"> @name </div>
+                    <div class="col-3 dodgerblue"> @c.Physician</div>
+                    <div class="col-3 dodgerblue"> @c.Clinic</div>
+                    <div class="col-3 dodgerblue"> @c.Location</div>
+                </div>
+
+
+                var defaultDate = "1/1/1753";
+                stay = "";
+
+                var confine = c.DateConfine.ToString();
+                confine = confine.Substring(0, confine.IndexOf(" "));
+                // date not entered check
+                confine = (confine == defaultDate) ? "n/a" : confine;
+
+                var release = c.DateRelease.ToString();
+                release = release.Substring(0, release.IndexOf(" "));
+                // date not entered check
+                release = (release == defaultDate) ? "n/a" : release;
+
+
+                // show line if one or both dates present.
+                // always show line for consistency
+                //var showHeader = true;
+                var showHeader = confine != defaultDate || release != defaultDate;
+                var na = "n/a";
+
+                // show stay if both present - calculate stay
+                var empty = "";
+                if (confine != na && release != na &&
+                    confine != empty && release != empty &&
+                    c.DateRelease >= c.DateConfine)
+                {
+                    showHeader = true;
+                    DateTime confine1 = (DateTime)c.DateConfine;
+                    DateTime release1 = (DateTime)c.DateRelease;
+
+                    TimeSpan numberOfDays = release1 - confine1;
+                    var strDays = numberOfDays.ToString("%d");
+                    // bump up by 1 for partial days...
+                    strDays = (Int32.Parse(strDays) + 1).ToString();
+                    var lit = (strDays == "1") ? "day" : "days";
+                    stay = strDays + " " + lit;
+                }
+
+
+                c.Procedure2 = c.Procedure2.Trim();
+
+                var procedures = "none";
+                // var status = "unknown";  // was removed see orig code
+                if (c.Procedure1 != "none") { procedures = c.Procedure1; }
+                if (c.Procedure2 != "none") { procedures = procedures + " " + c.Procedure2; }
+                // not used if (c.Procedure3 != "" && c.Procedure3 != "none") { procedures = procedures + " " + c.Procedure3; }
+
+                var service = c.Service;
+
+                var claimAdded = c.DateAdded;
+
+
+                var diag = "";
+                c.Diagnosis2 = c.Diagnosis2.Trim();
+                if (c.Diagnosis1 != "none") { diag = c.Diagnosis1; }
+                if (c.Diagnosis2 != "none") { diag += c.Diagnosis2; }
+
+
+                <div class="row">
+                    <div class="col-3 white">Procedure:</div>
+                    <div class="col-3 white">Diagnosis:</div>
+                    <div class="col-3 white">Note:</div>
+                    <div class="col-3 white">Referral:</div>
+                </div>
+
+
+                @if (c.ClaimDescription.Trim() == "")
+                {
+                    c.ClaimDescription = "none";
+                }
+
+                <div class="row">
+                    <div class="col-3 dodgerblue"> @procedures </div>
+                    <div class="col-3 dodgerblue"> @diag</div>
+                    <div class="col-3 dodgerblue"> @c.ClaimDescription</div>
+                    <div class="col-3 dodgerblue"> @c.Referral</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-3 white">Customer Plan:</div>
+                    <div class="col-3 white">Service:</div>
+                    <div class="col-3 white">Service Date:</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-3 aqua"> @plan</div>
+                    <div class="col-3 aqua"> @service</div>
+                    <div class="col-3 dodgerblue"> @dos</div>
+                </div>
+
+
+                <div class="row">
+                    <div class="col-3 white">Submitted Charge:</div>
+                    <div class="col-3 white">Plan Covered:</div>
+                    <div class="col-3 white">Balance Owed:</div>
+                    <div class="col-3 white">Payment Method:</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-3 dodgerblue"> $@c.TotalCharge </div>
+                    <div class="col-3 dodgerblue"> $@c.CoveredAmount</div>
+                    <div class="col-3 dodgerblue"> $@c.BalanceOwed</div>
+                    <div class="col-3 dodgerblue"> @c.PaymentAction</div>
+                </div>
+
+                if (c.ClaimType == "m" && showHeader == true)
+                {
+
+                    <div class="row">
+                        <div class="col-3 white">Confinement Began:</div>
+                        <div class="col-3 white">Released:</div>
+                        <div class="col-3 white">Length Stay:</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-3 dodgerblue"> @confine </div>
+                        <div class="col-3 dodgerblue"> @release</div>
+                        <div class="col-3 dodgerblue"> @stay  </div>
+                    </div>
+
+                }
+
+                if (c.ClaimType == "d")
+                {
+
+                    <div class="row">
+                        <div class="col-3 white">Tooth Number:</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-3 dodgerblue"> @c.ToothNumber </div>
+                    </div>
+                }
+
+                if (c.ClaimType == "v")
+                {
+
+                    <div class="row">
+                        <div class="col-3 white">Eyeware:</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-3 dodgerblue">@c.Eyeware </div>
+                    </div>
+                }
+
+                if (c.ClaimType == "x")
+                {
+
+                    <div class="row">
+                        <div class="col-3 white">Prescription Drug:</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-3 dodgerblue">@c.DrugName </div>
+                    </div>
+
+                }
+
+                <!-- if claim paid show paid date and amount -->
+
+                var tid = c.ClaimIdNumber.Trim();
+                var payStayData = (tid == payStayClaimNumber);
+
+                if (payStayData)
+                {
+
+                    <div class="row">
+                        <div class="col-3 white">Payment Amount:</div>
+                        <div class="col-3 white">Date:</div>
+                        <div class="col-3 white">Payment Plan:</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-3 dodgerblue"> @payStayAmount </div>
+                        <div class="col-3 dodgerblue"> @payStayDate</div>
+                        <div class="col-3 dodgerblue"> @payStayPlan </div>
+                    </div>
+                }
+
+                <!-- if claim paid show paid date and amount -->
+
+                var claimPaid = (c.ClaimStatus.Trim() == "Paid");
+                if (claimPaid)
+                {
+                    var value = c.PaymentDate.ToString();
+                    var paymentDate = value.Substring(0, value.IndexOf(" "));
+
+                    <div class="row">
+                        <div class="col-3 white">Payment Amount:</div>
+                        <div class="col-3 white">Date:</div>
+                        <div class="col-3 white">Payment Plan:</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-3 dodgerblue"> $@c.PaymentAmount </div>
+                        <div class="col-3 dodgerblue"> @paymentDate</div>
+                        <div class="col-3 dodgerblue"> @c.PaymentPlan  </div>
+                    </div>
+                }
+
+                <!-- if adjustment/adjusted add this line-->
+
+                var adjustment = (c.ClaimStatus.Trim() == "Adjustment");
+                if (adjustment)
+                {
+                    var action = "Adjustment";
+                    var date = "on";
+                    var what = "of claim";
+
+                    var value = c.DateAdded.ToString();
+                    var dateAdded = value.Substring(0, value.IndexOf(" "));
+
+                    <div class="row">
+                        <div class="col-3 burleywood">@action</div>
+                        <div class="col-3 burleywood">@date</div>
+                        <div class="col-3 burleywood">@what</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-3 dodgerblue"> </div>
+                        <div class="col-3 dodgerblue"> @dateAdded</div>
+                        <div class="col-3 dodgerblue"> @c.AdjustedClaimId  </div>
+                    </div>
+
+                }
+                var adjusted = (c.ClaimStatus.Trim() == "Adjusted");
+                if (adjusted)
+                {
+
+                    var value = c.AdjustedDate.ToString();
+                    var adjustedDate = value.Substring(0, value.IndexOf(" "));
+
+                    var action = "Claim Adjusted";
+                    var date = "on";
+                    var what = "with adjustment";
+
+                    <div class="row">
+                        <div class="col-3 burleywood">@action</div>
+                        <div class="col-3 burleywood">@date</div>
+                        <div class="col-3 burleywood">@what</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-3 dodgerblue"> </div>
+                        <div class="col-3 dodgerblue"> @adjustedDate</div>
+                        <div class="col-3 dodgerblue"> @c.AdjustingClaimId  </div>
+                    </div>
+                }
+
+                <!-- build action line -->
+                c.ClaimStatus = c.ClaimStatus.Trim();
+                // Paid or Adjustment are similar.
+                // allow entered claims to be adjusted even if not paid.
+                var allowPay = (c.ClaimStatus == "Entered" || c.ClaimStatus == "Adjustment")
+                                  &&
+                                (payStayRowUsed == false);
+                var allowAdjustment = (c.ClaimStatus == "Entered" || c.ClaimStatus == "Adjustment")
+                                  &&
+                                (payStayRowUsed == false);
+
+                anyOfAbove = allowAdjustment || allowPay;
+                var adjust = "adjust" + c.ClaimIdNumber;
+                var pay = "pay..." + c.ClaimIdNumber;
+
+                // index into the claim array
+                // controller will fish out the id AdjustButton
+                // and read the AdjustValue to
+                // select the claim to be adjusted.
+                // The claim data will be passed to the claim
+                // method of the controller to start the adjustment
+                // process.
+
+                var q = "'";
+                var cId = @q + c.ClaimIdNumber.Trim() + q;
+
+                <div class="spacer">
+
+                    <button class="fs g1menu btn btn-outline-primary"
+                            @onclick="menu">
+                        Menu
+                    </button>
+
+                    @if (@envUsingStay)
+                    {
+                        <button class="fs g4stay btn btn-outline-primary"
+                                @onclick="toggleStay">
+                            @stayLiteral
+                        </button>
+
+
+                    }
+
+                    @if (@envUsingFocus)
+                    {
+                        <button class="fs g4focus btn btn-outline-primary"
+                                @onclick="toggleFocus">
+                            @focusLiteral
+                        </button>
+
+                    }
+
+
+                    <button class="fs g5new btn btn-outline-primary spaceleft"
+                            @onclick="claim">
+                        Claim
+                    </button>
+
+                    @if (allowAdjustment)
+                    {
+
+                        <button value=@adjust
+                                name="sub"
+                                type="submit"
+                                @onclick="e => OnAdjustClaim(e, cId)"
+                                class="fs g3adjust btn btn-outline-warning">
+                            Adjust
+                        </button>
+
+                    }
+
+
+                    @if (allowPay)
+                    {
+
+                        <button value=@pay
+                                name="sub"
+                                type="button"
+                                class="fs g2pay btn btn-outline-warning"
+                                @onclick="e => OnPayCLaim(e, cId)">
+                            Pay Claim
+                        </button>
+
+                    }
+
+                    @if (@envUsingNav)
+                    {
+
+                        <button id="topButton"
+                                type="button"
+                                @onclick="e => OnPosition(e, top)"
+                                class="fs g4top btn btn-outline-warning">
+                            Top
+                        </button>
+
+                    }
+
+                    @if (@envUsingNav)
+                    {
+                        <button id="midButton"
+                                type="button"
+                                @onclick="e => OnPosition(e, mid)"
+                                class="fs g4mid btn btn-outline-warning">
+                            Mid
+                        </button>
+                    }
+
+                    @if (@envUsingNav)
+                    {
+
+                        <button id="botButton"
+                                type="button"
+                                @onclick="e => OnPosition(e, bot)"
+                                class="fs g4bottom btn btn-outline-warning">
+                            Bottom
+                        </button>
+                    }
+
+                    @if (@envUsingActions && @action1DataPresent)
+                    {
+                        <button id="act1button"
+                                type="button"
+                                href="history#act1"
+                                @onclick="e => OnPosition(e, act1)"
+                                class="fs g5act1 btn btn-outline-warning">
+                            @act1literal
+                        </button>
+                    }
+
+                    @if (@envUsingActions && @action2DataPresent)
+                    {
+
+                        <button id="act2button"
+                                type="button"
+                                href="history#act2"
+                                @onclick="e => OnPosition(e, act2)"
+                                class="fs g5act2 btn btn-outline-warning">
+                            @act2literal
+                        </button>
+                    }
+
+
+                </div>
+            }
+
+        }
+
+    }
+
+</div>
+
+@code{
+
+    Boolean found = false;
+
+    string topMessage = "";
+
+    [Parameter]
+
+    public string CustomerId { get; set; }
+
+    private List<Claim> claimList;
+
+    int claimListCount = 0;
+
+    const string yes = "Y";
+    bool envUsingStay = Env.usingStay;
+    bool envUsingFocus = Env.usingFocus;
+    bool envUsingNav = Env.usingNav;
+    bool envUsingActions = Env.usingActions;
+
+    // current button settings
+    bool stayButtonOn = false;
+    bool focusButtonOn = false;
+
+    // button literals
+    string stayLiteral = "";
+    string focusLiteral = "";
+
+    // pay stay variables
+
+    bool payStayRowUsed = false;
+    string payStayAmount = "0.0";
+    string payStayDate = "";
+    string payStayClaimNumber = "";
+    string payStayPlan = "none";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        
+        var id = sessionStorage.GetItem<string>("custId");
+        if (id == null)
+        {
+            navigationManager.NavigateTo("/"); // backdoor logic
+        }
+
+        var _send = Env.url;
+
+        string custId = "";
+
+        stayButtonOn = historySettings.isStayOn(sessionStorage);
+        focusButtonOn = historySettings.isFocusOn(sessionStorage);
+        stayLiteral = stayButtonOn ? "stay on" : "stay off";
+        focusLiteral = focusButtonOn ? "focus on" : "focus off";
+
+
+        try
+        {
+            custId = sessionStorage.GetItem<string>("custId").Trim();
+
+        }
+        catch (SystemException ex)
+        {
+            // code comes here when not signed in.
+            var m = ex.Message.ToString(); // avoid compile warning.
+
+            // needed in any component that calls back to navigation using cascading paramerter
+            // due to rendering exception when signin not used by custoner.
+
+            // needed here to when rendering exception also.
+
+            navigationManager.NavigateTo("/"); // backdoor logic
+        }
+
+
+        var sendString = _send + "/History/" + custId;
+
+        try
+        {
+            claimList = await Http.GetFromJsonAsync<List<Claim>>(sendString);
+            if (claimList != null && claimList.Count > 0)
+            {
+                found = true;
+                claimListCount = claimList.Count;
+            }
+
+        }
+        catch (System.Net.Http.HttpRequestException re)
+        {
+            // we get here when no claims from -getfromjsonasync exceptions on this
+            // to handle this just display a message
+
+            var m = re.ToString();
+
+
+            topMessage = "No Claims found for this customer.";
+
+            StateHasChanged();
+            return;
+
+        }
+        catch (SystemException ex)
+        {
+            // code comes here when not signed in.
+            var m = ex.Message.ToString(); // avoid compile warning.
+
+            // needed in any component that calls back to navigation using cascading paramerter
+            // due to rendering exception when signin not used by custoner.
+
+            // needed here to when rendering exception also.
+
+            navigationManager.NavigateTo("/"); // backdoor logic
+
+        }
+        catch (JSException j)
+        {
+            var m = j.Message.ToString();
+        }
+
+        if (found == false)
+        {
+            topMessage = "No claims available for this customer.";
+        }
+
+        StateHasChanged();
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+
+        if (firstRender) { return; }
+
+        try
+        {
+
+            // focus if needed after page is rendered.
+
+            var focusedClaimIdNumber = focusedClaim.getFocusedClaim(sessionStorage);
+            var haveFocusedClaim = focusedClaimIdNumber != "";
+
+            if (envUsingFocus && focusButtonOn && haveFocusedClaim)
+            {
+                // scroll to focused position.
+ 
+
+                await OnPosition("focus");
+            }
+
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine("OnAfterRenderAsync excepton ");
+            Console.WriteLine(ex.Message.ToString());
+        }
+    }
+
+
+
+    private void OnAdjustClaim(MouseEventArgs e, string AdjClaimId)
+    {
+
+        // todo see plan for var pass.
+        sessionStorage.SetItem<string>("historyAdjustedId", AdjClaimId);
+        // goto claim screen.
+        navigationManager.NavigateTo("/claim");
+    }
+     
+
+
+
+    private async void OnPayCLaim(MouseEventArgs e, string PayClaimId)
+    {
+
+        var amount = await PromptForAmount();
+
+        if (amount == "cancelled")
+        {
+            return; // user  canclled payment.
+        }
+
+        PayClaimHelper payClaimHelper = new PayClaimHelper(Http, Env.url, sessionStorage);
+
+        DateTime date = DateTime.Now;
+
+        await payClaimHelper.PayClaim(PayClaimId, amount, date);
+
+        // set message for menu
+        var msg = "Claim paid successfully";
+        sessionStorage.SetItem<string>("MenuMessage", msg);
+
+        // remember the action for history screen.
+        string cid = PayClaimId.Replace("'", "");
+        if (Env.usingActions)
+        {
+            actionOperations.setAction("Payment", cid, sessionStorage);
+        }
+
+        // set the focused claim
+        if (Env.usingFocus && historySettings.isFocusOn(sessionStorage))
+        {
+
+            focusedClaim.setFocusedClaim(cid, sessionStorage);
+            navigationManager.NavigateTo("/history", forceLoad: true);
+            //StateHasChanged(); // force on afterrenderasync and focusing 
+        }
+
+        // return to history screen if stay is used and toggled on.
+        if (Env.usingStay && historySettings.isStayOn(sessionStorage))
+        {
+            // set temp pay pay stay info.
+
+            payStayRowUsed = true;
+            payStayClaimNumber = cid;
+            System.Decimal decimalAmount = System.Decimal.Parse(amount);
+            payStayAmount = decimalAmount.ToString("C2");
+            payStayDate = date.ToString("MM/dd/yy");
+            payStayPlan = "";
+
+            // return to history - rerender with new payment info.
+            navigationManager.NavigateTo("/history");
+            return;
+        }
+
+        // goto main menu
+        navigationManager.NavigateTo("/menu");
+    }
+
+    // called from OnInitializeAsync
+    private async Task OnPosition(string position)
+    {
+
+        try
+        {
+            
+            object[] location = { position }; // set up parms "focus" , in this case.
+            await JSRuntime.InvokeVoidAsync("setHistoryPosition", location);
+
+        }
+        catch (System.Exception ex)
+        {
+
+            Console.WriteLine("OnPosition (1) Routine Exception: " + ex.Message.ToString());
+        }
+
+    }
+
+    // called from button click
+    private async Task OnPosition(MouseEventArgs e, string position)
+    {
+
+        try
+        {
+
+            object[] location = { position };
+            await JSRuntime.InvokeVoidAsync("setHistoryPosition", location);
+
+        }
+        catch (System.Exception ex)
+        {
+
+            Console.WriteLine("OnPosition (2) Routine Exception: " + ex.Message.ToString());
+        }
+    }
+
+    private async Task<string> PromptForAmount()
+    {
+
+        // cancel returns null
+
+        // https://docs.microsoft.com/en-us/aspnet/core/blazor/call-javascript-from-dotnet?view=aspnetcore-3.1
+
+        var stop = false;
+        decimal validDecimal = 0;
+
+        var promptMessage = "Enter Claim Payment Amount.";
+        var promptDefault = "0.0";
+
+
+        /*  if amount not valid decimal retry. Cancel returns null and stops logic */
+
+        while (stop == false)
+        {
+
+            var amount = await JSRuntime.InvokeAsync<string>("prompt", promptMessage, promptDefault);
+
+            if (amount == null)
+            {
+                return "cancelled";
+            }
+
+            // Edit user input for proper numeric
+
+            var goodAmount = decimal.TryParse(amount, out validDecimal);
+
+            if (goodAmount)
+            {
+                stop = true;
+            }
+
+        }
+
+        return validDecimal.ToString();
+    }
+
+    private void menu()
+    {
+
+        // goto main menu
+        navigationManager.NavigateTo("/menu");
+
+    }
+
+    private void claim()
+    {
+
+        // goto main menu
+        navigationManager.NavigateTo("/claim");
+
+    }
+
+    private void toggleStay()
+    {
+        bool newSetting = stayLiteral.Contains("on") ? false : true;
+        historySettings.setStay(newSetting, sessionStorage);
+        stayLiteral = "stay " + newSetting;
+        StateHasChanged();
+    }
+
+    private void toggleFocus()
+    {
+        bool newSetting = focusLiteral.Contains("on") ? false : true;
+        historySettings.setFocus(newSetting, sessionStorage);
+        focusLiteral = "focus " + newSetting;
+        StateHasChanged();
+
+    }
+
+
+    public partial class Claim
+    {
+        public int Id { get; set; }
+        public string ClaimIdNumber { get; set; }
+        public string ClaimDescription { get; set; }
+        public string CustomerId { get; set; }
+        public string PlanId { get; set; }
+        public string PatientFirst { get; set; }
+        public string PatientLast { get; set; }
+        public string Diagnosis1 { get; set; }
+        public string Diagnosis2 { get; set; }
+        public string Procedure1 { get; set; }
+        public string Procedure2 { get; set; }
+        public string Procedure3 { get; set; }
+        public string Physician { get; set; }
+        public string Clinic { get; set; }
+        public DateTime? DateService { get; set; }
+        public string Service { get; set; }
+        public string ServiceItem { get; set; }
+        public string PaymentPlan { get; set; }
+        public string Location { get; set; }
+        public decimal TotalCharge { get; set; }
+        public decimal CoveredAmount { get; set; }
+        public decimal BalanceOwed { get; set; }
+        public decimal PaymentAmount { get; set; }
+        public DateTime? PaymentDate { get; set; }
+        public DateTime? DateAdded { get; set; }
+        public string AdjustedClaimId { get; set; }
+        public string AdjustingClaimId { get; set; }
+        public DateTime? AdjustedDate { get; set; }
+        public string AppAdjusting { get; set; }
+        public string ClaimStatus { get; set; }
+        public string Referral { get; set; }
+        public string PaymentAction { get; set; }
+        public string ClaimType { get; set; }
+        public DateTime? DateConfine { get; set; }
+        public DateTime? DateRelease { get; set; }
+        public int ToothNumber { get; set; }
+        public string DrugName { get; set; }
+        public string Eyeware { get; set; }
+
+        // edited fields - not updated
+
+        public string ScreenDateService { get; set; }
+        public string ScreenDateConfine { get; set; }
+        public string ScreenDateRelease { get; set; }
+
+        // show 1 of 4 dropdowns depending on claim type selected.
+
+        /*
+
+        [NotMapped]
+        public List<SelectListItem> MedicalServiceOptions { get; set; }
+
+        [NotMapped]
+        public List<SelectListItem> DentalServiceOptions { get; set; }
+
+        [NotMapped]
+        public List<SelectListItem> VisionServiceOptons { get; set; }
+
+        [NotMapped]
+        public List<SelectListItem> DrugServiceOptions { get; set; }
+
+        [NotMapped]
+        public string firstMedical { get; set; }
+
+        [NotMapped]
+        public string firstDental { get; set; }
+
+        [NotMapped]
+        public string firstVision { get; set; }
+
+        [NotMapped]
+        public string firstDrug { get; set; }
+
+        [NotMapped]
+        public string pickedMedical { get; set; }
+
+        [NotMapped]
+        public string pickedDental { get; set; }
+
+        [NotMapped]
+        public string pickedVision { get; set; }
+
+        [NotMapped]
+        public string pickedDrug { get; set; }
+
+
+            */
+
+    }
+}
+
+
+
+

@@ -1,0 +1,365 @@
+﻿
+@page "/plan"
+
+
+
+@using System.ComponentModel.DataAnnotations;
+
+@using Newtonsoft.Json
+
+@inject HttpClient http
+
+@using A70Insurance.Models
+
+@inject NavigationManager navigationManager
+
+
+@inject Blazored.SessionStorage.ISyncSessionStorageService sessionStorage
+ 
+<div class="container">
+
+
+    <div style='margin-left:120px'>
+        <div class="row justify-content-left">
+            <font family="arial" font-size="60" style="color:Highlight">
+                <h1 display-1><i> Plan Selection</i></h1>
+            </font>
+        </div>
+    </div>
+
+
+    @{
+        foreach (var plan in PlanList)
+        {
+            var planName = plan.PlanName.ToString().Trim();
+            var planLiteral = plan.PlanLiteral.ToString().Trim();
+
+            var q = "'";
+            var parm = @q + plan.PlanName + q;
+
+
+            <div style="display: inline; margin-left: 20%; margin-top: 20px;"> 
+
+                    <button @onclick="e => OnPlanSelect(e, planName)"
+                            type="button"
+                            style="color:white"
+                            class="btn btn-outline-primary">
+
+                        @plan.PlanName
+
+                    </button> 
+
+                    <p style="margin-left: 80px; color: white; font-size: larger;">
+
+                        @plan.PlanLiteral
+
+                    </p>
+
+            </div>
+
+        }
+    }
+
+
+    <footer style='margin-left: 120px; margin-top: 240px;'>
+        <div style="color: lawngreen">@message</div>
+        <br /><br />
+        <div class="col-md-3">
+
+            <a @onclick="OnMenu"
+               href="/menu" type="button" class="b1 btn btn-primary">Menu</a>
+
+        </div>
+    </footer>
+
+    <!-- store plan name on clicked button.  -->
+    <input style="visibility:hidden" id="hiddenPlan" name="hiddenPlan" type="text" />
+
+</div>
+
+@code{
+
+    private string message;
+
+    public struct PlanData
+    {
+
+        public string planName;
+        public string planLiteral;
+    }
+
+    List<PlanEntry> PlanList = new List<PlanEntry>();
+
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var custId = sessionStorage.GetItem<string>("custId");
+        if (custId == null)
+        {
+            navigationManager.NavigateTo("/"); // backdoor logic 
+        }
+
+
+
+
+        // load plan data into list
+
+        var send = Env.url;
+        var suffix = "/api/readPlans";
+        var url = send + suffix;
+
+
+        HttpResponseMessage m = await ReadPlans(url);
+
+        var goodResult = m.IsSuccessStatusCode;
+
+        if (goodResult == false)
+        {
+            message = "could not complete signin unexpected result.";
+            message += "status code:" + m.StatusCode.ToString() + " was returned. ";
+
+            var status = m.StatusCode.ToString();
+            if (status == "NotFound") { message = "Customer not found."; }
+            if (status == "ServerError") { message = "Server error."; }
+
+
+            return;
+        }
+
+
+        HttpContent content = m.Content;
+        var input = await content.ReadAsStringAsync();
+
+        PlanList = JsonConvert.DeserializeObject<List<PlanEntry>>(input);
+
+
+    }
+
+
+    private async Task<HttpResponseMessage> ReadPlans(string url)
+    {
+
+
+        HttpRequestMessage req = new HttpRequestMessage()
+        {
+
+            RequestUri = new Uri(url),
+            Method = new HttpMethod("Get")
+
+        };
+
+        // catch server down exception ....
+
+        HttpResponseMessage m = null;
+
+        try
+        {
+            m = await http.SendAsync(req);
+
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine("Find Customer: Exception on call: " + ex.Message.ToString());
+
+            StateHasChanged();
+
+            message = "could not complete plan read unexpected result.";
+            message += "status code:" + m.StatusCode.ToString() + " was returned. ";
+
+            var status = m.StatusCode.ToString();
+            if (status == "NotFound") { message = "Plans not found."; }
+            if (status == "ServerError") { message = "Server error."; }
+
+
+        }
+
+        return m;
+
+
+    }
+
+    private void OnMenu()
+    {
+
+    }
+
+    private async void OnPlanSelect(MouseEventArgs e, string PlanName)
+    {
+        // plan selection
+        var msg = await UpdatePlan(PlanName);
+
+        if (msg == "OK")
+        {
+            msg = "Plan updated successfully.";
+
+            sessionStorage.SetItem("hasPlan", "yes");
+            sessionStorage.SetItem("PlanId", PlanName);
+
+            // set message for menu
+            sessionStorage.SetItem<string>("MenuMessage", msg);
+            navigationManager.NavigateTo("/menu");
+        }
+
+        message = msg; // show error message on plan screen.
+
+    }
+
+
+    private async Task<string> UpdatePlan(string PlanName)
+    {
+        // /api/UpdateCustomer/
+
+        string url = Env.url + "/api/UpdateCustomerPlan";
+
+        PlanInput planInput = new PlanInput();
+        planInput.PlanName = PlanName;
+        planInput.CustomerId = sessionStorage.GetItem<string>("custId").Trim();
+
+
+        HttpContent item = JsonContent.Create<PlanInput>(planInput);
+
+        HttpRequestMessage req = new HttpRequestMessage()
+        {
+
+            RequestUri = new Uri(url),
+            Method = new HttpMethod("Put"),
+            Content = item
+        };
+
+        var token = sessionStorage.GetItem<string>("A65TOKEN"); 
+        req.Headers.Add("A65TOKEN", token); 
+
+        HttpResponseMessage m = null;
+
+        try
+        {
+            m = await http.SendAsync(req);
+
+        }
+        catch (System.Exception ex)
+        {
+            Console.WriteLine("Exception on plan update call: " + ex.Message.ToString());
+        }
+
+
+        var goodResult = m.IsSuccessStatusCode;
+
+        if (goodResult == false)
+        {
+            message = "could not complete plan update unexpected result.";
+            message += "status code:" + m.StatusCode.ToString() + " was returned. ";
+
+            var status = m.StatusCode.ToString();
+            if (status == "404") { message = "Customer not found."; }
+            if (status == "500") { message = "Server error."; }
+
+            return message;
+        }
+        else
+        {
+            message = "OK";
+
+            // update internal copy
+            UpdateCustomerJsonInternalCopy(PlanName);
+
+            return message;
+        }
+
+    }
+    private void UpdateCustomerJsonInternalCopy(string planName)
+    {
+
+        // update internal copy of customer
+
+        // unpack json like update
+
+        var json = sessionStorage.GetItem<string>("theCustomerAsJson");
+        Customer customer = JsonConvert.DeserializeObject<Customer>(json);
+
+        // replace plan
+        customer.CustPlan = planName;
+
+        // store json like signin does
+
+        json = JsonConvert.SerializeObject(customer);
+
+
+        sessionStorage.SetItem("theCustomerAsJson", json);
+
+    }
+
+
+    public class Customer
+    {
+        public int Id { get; set; }
+
+        [Required,
+         System.ComponentModel.DataAnnotations.RegularExpression("^[a-zA-Z0-9]*$", ErrorMessage = " Customer ID must only contains letters or numbers - required.")]
+        public string CustId { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z0-9\\s]*$", ErrorMessage = " password must only contains letters or numbers - required.")]
+        public string CustPassword { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public string ConfirmPassword { get; set; }
+
+        public string Encrypted { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z0-9.\\s]*$", ErrorMessage = " First Name must only contains letters or numbers and is required.")]
+        public string CustFirst { get; set; }
+
+        [RegularExpression("^[a-zA-Z0-9.\\s]*$", ErrorMessage = " Middle Name must only contains letters or numbers and is required.")]
+
+        public string CustMiddle { get; set; }
+
+        [Required,
+         RegularExpression("^[a-zA-Z.\\s]*$", ErrorMessage = "Last Name must contains letters and is required")]
+        public string CustLast { get; set; }
+
+        [Required,
+           RegularExpression("^[@0-9a-zA-Z.\\s]*$", ErrorMessage = "Invalid Email")]
+
+        public string CustEmail { get; set; }
+        // edit date routine edits this field. screen uses screenBirthDate below.
+        // once edited put data here.
+        public DateTime? CustBirthDate { get; set; }
+
+        /*  [Required,
+              RegularExpression("^[mfMF]+$", ErrorMessage = "Gender m f")] */
+
+        public string CustGender { get; set; }
+        [Required,
+          Phone]
+        public string CustPhone { get; set; }
+        [Required,
+           RegularExpression("^[a-zA-Z0-9#.\\s]*$", ErrorMessage = " address1 must only contains letters or numbers . # - required.")]
+        public string CustAddr1 { get; set; }
+        [RegularExpression("^\\s|[a-zA-Z0-9#.\\s]*$", ErrorMessage = "address2 must contains letters or numbers . #  if entered")]
+        public string CustAddr2 { get; set; }
+        [Required,
+          RegularExpression("^[a-zA-Z.\\s]*$", ErrorMessage = "City must contains letters and is required")]
+        public string CustCity { get; set; }
+        public string CustState { get; set; }
+        [Required]
+        [RegularExpression("^[0-9]*$", ErrorMessage = "US zip must only contains numbers = required.")]
+
+        public string CustZip { get; set; }
+        public string CustPlan { get; set; }
+        public string PromotionCode { get; set; }
+        public string AppId { get; set; }
+        public string ExtendColors { get; set; }
+        public string ClaimCount { get; set; }
+
+        public string ScreenBirthDate { get; set; }
+    }
+}
+
+
+
+
+
+
+
